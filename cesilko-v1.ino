@@ -44,8 +44,8 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 // default user time values - everything in SECONDS
 //TODO: Set reasonable initial times
 long running_time = 0L; // how far we are in the current interval
-long alarm_time = 12L; //when to start the pump - how long the interval is
-long pumping_time = 4L; // how long should pump run
+long alarm_time = 15L; //when to start the pump - how long the interval is
+long pumping_time = 5L; // how long should pump run
 long pumping_time_remaining = 0L; // how much time of pumping remains
 long manual_time = 0L; // how long does pump run on manual override
 
@@ -167,7 +167,7 @@ void printStatus(int status){
     lcd.write((byte)1); // clock
     lcd.setCursor(10,0);
     char running[7];
-    formatTimeH(running,running_time);
+    formatTimeM(running,running_time);
     lcd.print(running);
     lcd.setCursor(0,1);
     lcd.write((byte)2);//duck
@@ -182,7 +182,7 @@ void printStatus(int status){
     lcd.write((byte)0);
     lcd.setCursor(10,1);
     char alarm[7];
-    formatTimeH(alarm,alarm_time);
+    formatTimeM(alarm,alarm_time);
     lcd.print(alarm);
   } 
   else if (status==S_AUTOPUMP){
@@ -194,6 +194,18 @@ void printStatus(int status){
     char remaining[7];
     formatTimeM(remaining,pumping_time_remaining);
     lcd.print(remaining);
+  } 
+  else if (status==S_MANPUMP){
+    lcd.clear();
+    lcd.print("! Manualni beh !");
+    lcd.setCursor(0,1);
+    lcd.print("!    ");
+    lcd.setCursor(5,1);
+    char manual[7];
+    formatTimeM(manual,manual_time);
+    lcd.print(manual);
+    lcd.setCursor(15,1);
+    lcd.print("!");//duck
   }  
 }
 
@@ -207,19 +219,6 @@ void loop() {
   button_down_state = digitalRead(button_down);
   button_red_state = digitalRead(button_red);
   switch_black_state = digitalRead(switch_black);
-
-  //TODO:remove
-  /*Serial.println("**** STATUS UPDATE ***");
-  Serial.print("UP: ");
-  Serial.println(button_up_state);
-  Serial.print("DOWN: ");
-  Serial.println(button_down_state);
-  Serial.print("SET: ");
-  Serial.println(button_red_state);
-  Serial.print("MANUAL: ");
-  Serial.println(switch_black_state);
-  delay(500);
-  */
 
 /*
   // MANUAL TEST
@@ -238,6 +237,25 @@ void loop() {
   unsigned long currentMillis = millis();
 
   // TODO: check all async state changes here! Setup button, manual override, standard button (if they will get any function later)
+
+  // Checking the manual override
+  if (switch_black_state == LOW){
+    if (status!=S_MANPUMP){
+      // first time we hit a manual mode
+      manual_time=0;
+      digitalWrite(relay, HIGH);
+      status=S_MANPUMP;
+    }
+  }
+  else {
+    if (status==S_MANPUMP){
+      // we are exiting manual mode
+      digitalWrite(relay, LOW);
+      status=S_NORMAL;
+      running_time=0L;
+      pumping_time_remaining = pumping_time;
+    }
+  }
 
   /*
    * The main state changes happe on whole seconds ...
@@ -268,6 +286,11 @@ void loop() {
       }
       
     }
+    else if (status==S_MANPUMP){
+      manual_time++;
+      printStatus(S_MANPUMP);
+    }
+
 
       
   }
